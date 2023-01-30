@@ -1,17 +1,39 @@
-﻿using System.Net;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
+using WaterTank.Models;
 
 namespace AWS.Consumer;
 class Program
 {
     private static ManualResetEvent manualResetEvent;
-
+    static SensorDataService service;
     static void Main(string[] args)
     {
+        IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
+    {
+
+        services.AddTransient<SensorDataService>();
+    })
+    .Build();
+        var configBuilder = new ConfigurationBuilder()
+          .SetBasePath(Directory.GetCurrentDirectory())
+          .AddJsonFile("appsettings.json", optional: false);
+        IConfiguration Configuration = configBuilder.Build();
+
+        AppConstants.SQLConn = Configuration["ConnectionStrings:SqlConn"];
+        AppConstants.RedisCon = Configuration["RedisCon"];
+        AppConstants.BlobConn = Configuration["ConnectionStrings:BlobConn"];
+        AppConstants.GMapApiKey = Configuration["GmapKey"];
+        service = host.Services.GetService<SensorDataService>();
         var iotEndPoint = "a2teks7xu15e4c-ats.iot.ap-southeast-1.amazonaws.com";
         var iotPort = 8883;
 
@@ -49,7 +71,15 @@ class Program
 
     private static void IotClient_MqttMsgPublishReceived(object sender, MqttMsgPublishEventArgs e)
     {
-        Console.WriteLine("Message received: " + Encoding.UTF8.GetString(e.Message));
+        var jsonData = Encoding.UTF8.GetString(e.Message);
+        Console.WriteLine("Message received: " + jsonData);
+        var objData = JsonSerializer.Deserialize<SensorData>(jsonData);
+        if (objData != null && service!=null)
+        {
+            //insert to db
+            var res = service.InsertData(objData);
+            Console.WriteLine($"[{DateTime.Now.ToString()}] Insert data to db: {res}");
+        }
     }
 
     private static void IotClient_MqttMsgSubscribed(object sender, MqttMsgSubscribedEventArgs e)

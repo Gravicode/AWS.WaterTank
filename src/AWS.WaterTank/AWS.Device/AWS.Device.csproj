@@ -14,6 +14,9 @@
     <PackageReference Include="M2Mqtt" Version="4.3.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\WaterTank.Models\WaterTank.Models.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="AmazonRootCA1.crt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

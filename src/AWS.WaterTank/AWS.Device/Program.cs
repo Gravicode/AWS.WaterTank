@@ -1,9 +1,12 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
+using WaterTank.Models;
 
 namespace AWS.Device;
 class Program
@@ -65,15 +68,16 @@ class Program
         iotClient.Publish(topicShadowUpdate, Encoding.UTF8.GetBytes(message),
              MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE , false);
         int i = 0;
-        message = "Test message";
+        var random = new Random(Environment.TickCount);
         while (true)
         {
-            iotClient.Publish(topic, Encoding.UTF8.GetBytes($"{message} {i}"));
+            var newItem = new SensorData() { Tanggal = DateTime.Now, WaterDistance = random.Next(10, 300), Humidity = random.Next(10, 100), Temperature = random.Next(28, 38), FlowIn = random.Next(0, 100), FlowOut = random.Next(0, 100) };
+            message = JsonSerializer.Serialize(newItem);
+            iotClient.Publish(topic, Encoding.UTF8.GetBytes($"{message}"));
             Console.WriteLine($"Published: {message} {i}");
             i++;
             Thread.Sleep(5000);
         }
-
     }
 }
 

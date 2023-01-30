@@ -1,0 +1,115 @@
+﻿@using System.Text.Json
+@page "/report/live-dashboard"
+@inject SensorDataService SensorSvc
+@implements IDisposable
+
+<PageTitle>Dashboard IoT Sederhana</PageTitle>
+<MudButton @onclick="RandomizeData" Variant="Variant.Filled" Color="Color.Primary">@LabelBtn</MudButton>
+<MudButton @onclick="Setup" Variant="Variant.Filled" Color="Color.Primary">Get Data From IoT Core</MudButton>
+<MudGrid>
+    <MudItem xs="12">
+        <MudChart ChartType="ChartType.Line" ChartSeries="@TempSeries" @bind-SelectedIndex="idx" XAxisLabels="@XAxisLabels" Width="100%" Height="350px"></MudChart>
+    </MudItem>
+    <MudItem xs="12">
+        <MudChart ChartType="ChartType.Line" ChartSeries="@HumidSeries" @bind-SelectedIndex="idx" XAxisLabels="@XAxisLabels" Width="100%" Height="350px"></MudChart>
+    </MudItem>
+    <MudItem xs="12">
+        <MudChart ChartType="ChartType.Line" ChartSeries="@WaterDistSeries" @bind-SelectedIndex="idx" XAxisLabels="@XAxisLabels" Width="100%" Height="350px"></MudChart>
+    </MudItem>
+</MudGrid>
+
+@code {
+    public DashboardTypes Mode { get; set; } = DashboardTypes.Simulation;
+    bool HasStart = false;
+    string LabelBtn = "Start Simulation";
+    int idx = -1;
+    bool IsRunning = false;
+    public List<SensorData> TimeSeriesData { get; set; } = new();
+    public List<ChartSeries> TempSeries = new List<ChartSeries>()
+{
+        new ChartSeries() { Name = "Temp", Data = new double[] { } },
+
+    };
+    public List<ChartSeries> HumidSeries = new List<ChartSeries>()
+{
+        new ChartSeries() { Name = "Humid", Data = new double[] { } },
+
+    };
+    public List<ChartSeries> WaterDistSeries = new List<ChartSeries>()
+{
+        new ChartSeries() { Name = "WaterDist", Data = new double[] { } },
+
+    };
+    public string[] XAxisLabels = { };
+
+    Random random = new Random();
+    protected override void OnInitialized()
+    {
+
+    }
+
+    public void Dispose()
+    {
+
+    }
+    //private const string DEFAULT_CONSUMER_GROUP = "$Default";
+    async Task Setup()
+    {
+        if (HasStart) return;
+        Mode = DashboardTypes.LiveData;
+        //await HubSvc.Start("myFirstDevice", "HostName=BmcIoTHub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=1hyvQvLk7mWsQmBJ/MuTxWqiwr1nqtNnBs6gNqspta4=", DateTime.Now, DEFAULT_CONSUMER_GROUP);
+        HasStart = true;
+    }
+    async Task Cancel()
+    {
+        //HubSvc.Cancel();
+        HasStart = false;
+    }
+    int DataPoints = 10;
+    public async Task RandomizeData()
+    {
+        if (IsRunning)
+        {
+            IsRunning = false;
+            LabelBtn = "Start Simulation";
+            return;
+        }
+        else
+        {
+            LabelBtn = "Stop Simulation";
+            IsRunning = true;
+        }
+
+
+        TimeSeriesData.Clear();
+        while (IsRunning)
+        {
+            var newItem = new SensorData() { Tanggal = DateTime.Now, WaterDistance = random.Next(10, 300), Humidity = random.Next(10, 100), Temperature = random.Next(28, 38), FlowIn = random.Next(0, 100), FlowOut = random.Next(0, 100) };
+            TimeSeriesData.Add(newItem);
+            await RefreshChart();
+            await Task.Delay(1000);
+        }
+    }
+
+    async Task RefreshChart()
+    {
+        if(Mode== DashboardTypes.Simulation)
+        {
+            TempSeries[0].Data = TimeSeriesData.Select(x => x.Temperature).TakeLast(DataPoints).ToArray();
+            WaterDistSeries[0].Data = TimeSeriesData.Select(x => x.WaterDistance).TakeLast(DataPoints).ToArray();
+            HumidSeries[0].Data = TimeSeriesData.Select(x => x.Humidity).TakeLast(DataPoints).ToArray();
+            XAxisLabels = TimeSeriesData.Select(x => x.Tanggal.ToString("HH:mm:ss")).TakeLast(DataPoints).ToArray();
+        }
+        else
+        {
+            //update from db
+            TimeSeriesData = SensorSvc.GetLatest(DataPoints);
+            TempSeries[0].Data = TimeSeriesData.OrderBy(x=>x.Id).Select(x => x.Temperature).ToArray();
+            WaterDistSeries[0].Data = TimeSeriesData.OrderBy(x => x.Id).Select(x => x.WaterDistance).ToArray();
+            HumidSeries[0].Data = TimeSeriesData.OrderBy(x => x.Id).Select(x => x.Humidity).ToArray();
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+    }
+}

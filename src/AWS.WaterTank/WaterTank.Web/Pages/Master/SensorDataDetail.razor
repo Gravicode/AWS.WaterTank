@@ -1,0 +1,93 @@
+﻿@inject IJSRuntime jsRuntime
+@using System.IO
+@inject IToastService toastService
+@inject SensorDataService service
+@inject AzureBlobHelper blob;
+
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-3 mb-n1" />
+            @CustomHeader
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="@TaskObject" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="12">
+                    <MudCard>
+                        <MudCardContent>
+                            <input type="hidden" @bind="@TaskObject.Id" />
+                            <MudTextField Label="Tanggal" HelperText="Tanggal"
+                                          @bind-Value="TaskObject.Tanggal" For="@(() => TaskObject.Tanggal)" />
+
+                            <MudTextField Label="Humidity" Class="mt-3" @bind-Value="TaskObject.Humidity" For="@(() => TaskObject.Humidity)" InputType="InputType.Text" />
+                            <MudTextField Label="FlowOut" Class="mt-3" @bind-Value="TaskObject.FlowOut" For="@(() => TaskObject.FlowOut)" InputType="InputType.Text" />
+                            <MudTextField Label="FlowIn" Class="mt-3" @bind-Value="TaskObject.FlowIn" For="@(() => TaskObject.FlowIn)" InputType="InputType.Text" />
+                            <MudTextField Label="Temperature" Class="mt-3" @bind-Value="TaskObject.Temperature" For="@(() => TaskObject.Temperature)" InputType="InputType.Text" />
+                            <MudTextField Label="WaterDistance" Class="mt-3" @bind-Value="TaskObject.WaterDistance" For="@(() => TaskObject.WaterDistance)" InputType="InputType.Text" />
+                        
+
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mr-2">Simpan</MudButton>
+                            <MudButton ButtonType="ButtonType.Button" OnClick="Cancel" Variant="Variant.Filled" Color="Color.Secondary">Cancel</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+
+    </DialogActions>
+</MudDialog>
+
+
+@code {
+
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    [Parameter]
+    public string CustomHeader { get; set; }
+    [Parameter]
+    public SensorData TaskObject { get; set; }
+    [Parameter]
+    public Action DataChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+    }
+    private void OnValidSubmit(EditContext context)
+    {
+        if (TaskObject.Id == 0)
+        {
+
+            var hasil = service.InsertData(TaskObject);
+            if (!hasil)
+            {
+                Snackbar.Add("Gagal menyimpan data. Isi data dengan lengkap.", Severity.Error);
+                //toastService.ShowError("Gagal menyimpan data. Isi data dengan lengkap.", "Perhatian");
+            }
+        }
+        else
+        {
+            service.UpdateData(TaskObject);
+        }
+
+        //In a real world scenario this bool would probably be a service to delete the item from api/database
+        Snackbar.Add("Data Saved", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(TaskObject.Id));
+        DataChanged?.Invoke();
+    }
+
+}
