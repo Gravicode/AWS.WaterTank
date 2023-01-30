@@ -11,8 +11,10 @@ using WaterTank.Models;
 namespace AWS.Device;
 class Program
 {
+    static Xbee xbee;
     static void Main(string[] args)
     {
+       
         var iotEndPoint = "a2teks7xu15e4c-ats.iot.ap-southeast-1.amazonaws.com";
         var iotPort = 8883;
         var deviceId = "water-monitor-gateway";
@@ -69,15 +71,51 @@ class Program
              MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE , false);
         int i = 0;
         var random = new Random(Environment.TickCount);
+        xbee = new Xbee(AppConstants.COM_PORT);
+        xbee.DataReceived += (object sender, Xbee.DataReceivedEventArgs e) =>
+        {
+            if (string.IsNullOrEmpty(e.Data)) return;
+            try
+            {
+                Console.WriteLine(e.Data);
+                var filtered = e.Data.Replace("data:", string.Empty);
+                if(double.TryParse(filtered,out var nilai))
+                {
+                    var newItem = new SensorData() { Tanggal = DateTime.Now, WaterDistance = nilai*1000, Humidity = random.Next(10, 100), Temperature = random.Next(28, 38), FlowIn = random.Next(0, 100), FlowOut = random.Next(0, 100) };
+                    message = JsonSerializer.Serialize(newItem);
+                    iotClient.Publish(topic, Encoding.UTF8.GetBytes($"{message}"));
+                    Console.WriteLine($"Published: {message}");
+                    i++;
+                }
+               
+                /*
+                var obj = JsonSerializer.Deserialize<SensorData>(e.Data);
+                if (obj != null)
+                {
+
+                }*/
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                //throw;
+            }
+
+
+
+        };
+        Console.ReadLine();
+        /*
         while (true)
         {
             var newItem = new SensorData() { Tanggal = DateTime.Now, WaterDistance = random.Next(10, 300), Humidity = random.Next(10, 100), Temperature = random.Next(28, 38), FlowIn = random.Next(0, 100), FlowOut = random.Next(0, 100) };
             message = JsonSerializer.Serialize(newItem);
             iotClient.Publish(topic, Encoding.UTF8.GetBytes($"{message}"));
-            Console.WriteLine($"Published: {message} {i}");
+            Console.WriteLine($"Published: {message}");
             i++;
             Thread.Sleep(5000);
-        }
+        }*/
     }
+  
 }
 
